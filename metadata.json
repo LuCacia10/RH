@@ -1,0 +1,6 @@
+{
+  "name": "SGRH - Secteur Public",
+  "description": "Système numérique complet de Gestion des Ressources Humaines pour le secteur public : carrières, congés, présences, évaluations, formations et paie.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

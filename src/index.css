@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Elegant Dark Global Styles */
+html, body {
+  background-color: #0A0C10 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Overrides for common card backgrounds to match #161B22 */
+.bg-white {
+  background-color: #161B22 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Modal and list backgrounds */
+.bg-slate-50, .bg-slate-100, .bg-slate-200/50, .bg-slate-100\/50, .bg-gray-50, .bg-gray-100 {
+  background-color: #0F1218 !important;
+}
+
+/* Inner panels or header elements */
+.bg-slate-100\.p-1, .bg-slate-100\.p-2, .p-4.bg-slate-50, .bg-slate-50\/80 {
+  background-color: #0F1218 !important;
+}
+
+/* Sub-card widgets and dialog frames */
+.bg-slate-50.p-4, .bg-slate-50.p-6, .border.border-slate-200.bg-white, .border.border-slate-100 {
+  background-color: #161B22 !important;
+}
+
+/* Input elements styling */
+input, select, textarea {
+  background-color: #0F1218 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* General border resets to elegant dark borders */
+.border-slate-200, .border-slate-100, .border-slate-300, .border-gray-200, .border-gray-100, .divide-slate-200 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Table styling for dark theme readability */
+table {
+  color: #cbd5e1 !important;
+}
+
+thead, th {
+  background-color: #0F1218 !important;
+  color: #94a3b8 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+tr, td {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Text overrides */
+.text-slate-900, .text-gray-900, .text-slate-800, .text-gray-800 {
+  color: #ffffff !important;
+}
+
+.text-slate-700, .text-gray-700, .text-slate-600, .text-gray-600 {
+  color: #d1d5db !important;
+}
+
+.text-slate-500, .text-gray-500, .text-slate-400, .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+/* Light background tag colors rewritten for dark contrast */
+.bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  color: #34d399 !important;
+}
+
+.bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+  color: #a5b4fc !important;
+}
+
+.bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+  color: #fcd34d !important;
+}
+
+.bg-sky-50 {
+  background-color: rgba(14, 165, 233, 0.1) !important;
+  color: #7dd3fc !important;
+}
+
+.bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #fca5a5 !important;
+}
+
+.bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  color: #93c5fd !important;
+}
+
+/* Dropdown list items inside HTML Select elements */
+select option {
+  background-color: #161B22 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0A0C10;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Custom fade effects */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
