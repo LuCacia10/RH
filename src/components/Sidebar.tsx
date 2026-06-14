@@ -46,7 +46,7 @@ export default function Sidebar({ activeTab, setActiveTab, agentCount, pendingLe
       <div className="p-6 border-b border-white/10 bg-[#0F1218]">
         <div className="flex items-center gap-3">
           <img
-            src="/src/assets/images/sgrh_hr_logo_1780434903469.png"
+            src="/src/assets/images/logo.png"
             alt="Logo SGRH RH"
             className="w-11 h-11 object-cover rounded-lg shadow-lg shadow-indigo-500/20 border border-white/10"
             referrerPolicy="no-referrer"
