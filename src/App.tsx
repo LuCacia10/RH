@@ -17,7 +17,8 @@ import Evaluations from "./components/Evaluations";
 import Formations from "./components/Formations";
 import Paie from "./components/Paie";
 import SchemaVisualizer from "./components/SchemaVisualizer";
-import { fetchData, postData, deleteData } from "./services/api";
+import Login from "./components/Login";
+import { AuthUser, clearSession, fetchData, getCurrentUser, getStoredToken, postData, putData } from "./services/api";
 
 // Raw definitions and preloads
 import {
@@ -73,10 +74,12 @@ import {
   InscriptionFormation,
   AgentCompetence,
   BulletinPaie,
-  JournalAudit
+  JournalAudit, ValeurReference, Ministere, Direction, Service, Bureau, Grade, Corps, Categorie, Poste, EchelleSalariale
 } from "./types";
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(Boolean(getStoredToken()));
   const [activeTab, setActiveTab] = useState<string>("dashboard");
 
   // React State stores
@@ -107,8 +110,15 @@ export default function App() {
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [notesEvaluation, setNotesEvaluation] = useState<any[]>([]);
 
-  // Fetch all data from backend on mount
   useEffect(() => {
+    const restore = async () => { if (!getStoredToken()) return; try { setCurrentUser(await getCurrentUser()); } catch { clearSession(); } finally { setAuthLoading(false); } };
+    restore(); const logout = () => setCurrentUser(null); window.addEventListener('sgrh:unauthorized', logout);
+    return () => window.removeEventListener('sgrh:unauthorized', logout);
+  }, []);
+
+  // Fetch all data from backend after authentication
+  useEffect(() => {
+    if (!currentUser) return;
     const loadDashboardData = async () => {
       const stats = await fetchData('/dashboard/stats');
       if (stats) {
@@ -124,7 +134,7 @@ export default function App() {
       if (refs) setValeursRef(refs);
     };
     loadDashboardData();
-  }, []);
+  }, [currentUser]);
 
   // LocalStorage logic removed - synchronising with backend now
 
@@ -184,8 +194,7 @@ export default function App() {
 
   const handleModifierStatutConge = async (congeId: number, nouveauStatut: number) => {
     const update = { id_conge: congeId, statutConge: { id_valeur_reference: nouveauStatut } };
-    const saved = await postData(`/conges/${congeId}`, update); // Using PUT actually but my postData is a wrapper
-    // Actually our api.ts postData uses POST. Let's assume we have a putData or just update locally if API fails
+    await putData(`/conges/${congeId}`, update);
     
     setConges(prev =>
       prev.map(c => c.id_conge === congeId ? { ...c, id_statut_conge: nouveauStatut } : c)
@@ -265,6 +274,9 @@ export default function App() {
     }
   };
 
+  if (authLoading) return <div className="min-h-screen bg-[#0A0C10] text-indigo-400 grid place-items-center">Vérification de la session…</div>;
+  if (!currentUser) return <Login onAuthenticated={setCurrentUser}/>;
+  const handleLogout=()=>{clearSession();setCurrentUser(null);};
   const pendingLeavesCount = conges.filter(c => c.id_statut_conge === 401).length;
 
   return (
@@ -291,8 +303,10 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 self-start sm:self-center">
+            <div className="text-right hidden sm:block"><span className="text-xs font-semibold text-white block">{currentUser.username}</span><span className="text-[10px] text-slate-500">{currentUser.roles.join(', ')}</span></div>
+            <button onClick={handleLogout} className="text-xs border border-white/10 rounded-lg px-3 py-2 hover:bg-white/5">Déconnexion</button>
             <span className="text-[11px] font-mono font-semibold bg-white/5 text-slate-300 px-2.5 py-1 rounded border border-white/10">
-              UTC: 2026-06-02 21:07
+              {new Date().toLocaleString('fr-FR')}
             </span>
           </div>
         </header>

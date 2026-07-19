@@ -190,11 +190,11 @@ export default function OrgStructure({
               </div>
 
               {/* Steps cascade nodes */}
-              <div className="space-y-6 relative before:absolute before:left-5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+              <div className="space-y-6 relative">
                 
                 {/* Node 1: Directions */}
-                <div className="flex gap-4 items-start relative z-10">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                <div className="flex gap-4 items-start relative after:absolute after:left-5 after:top-10 after:-bottom-6 after:w-0.5 after:bg-indigo-400/30">
+                  <div className="relative z-10 w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
                     Dir
                   </div>
                   <div className="flex-1 min-w-0">
@@ -228,8 +228,8 @@ export default function OrgStructure({
                 </div>
 
                 {/* Node 2: Services */}
-                <div className="flex gap-4 items-start relative z-10">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                <div className="flex gap-4 items-start relative after:absolute after:left-5 after:top-10 after:-bottom-6 after:w-0.5 after:bg-emerald-400/30">
+                  <div className="relative z-10 w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
                     Serv
                   </div>
                   <div className="flex-1 min-w-0">
@@ -263,8 +263,8 @@ export default function OrgStructure({
                 </div>
 
                 {/* Node 3: Bureaux locaux */}
-                <div className="flex gap-4 items-start relative z-10">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                <div className="flex gap-4 items-start relative">
+                  <div className="relative z-10 w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
                     Bur
                   </div>
                   <div className="flex-1 min-w-0">

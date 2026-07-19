@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import rhLogo from "../assets/images/rh-logo.svg";
 import {
   LayoutDashboard,
   Users,
@@ -46,10 +47,9 @@ export default function Sidebar({ activeTab, setActiveTab, agentCount, pendingLe
       <div className="p-6 border-b border-white/10 bg-[#0F1218]">
         <div className="flex items-center gap-3">
           <img
-            src="/src/assets/images/logo.png"
-            alt="Logo SGRH RH"
-            className="w-11 h-11 object-cover rounded-lg shadow-lg shadow-indigo-500/20 border border-white/10"
-            referrerPolicy="no-referrer"
+            src={rhLogo}
+            alt="Logo de gestion des ressources humaines"
+            className="w-11 h-11 object-contain rounded-xl shadow-lg shadow-indigo-500/20"
           />
           <div>
             <h1 className="font-bold text-lg tracking-tight text-white leading-tight">SGRH <span className="text-indigo-400">Public</span></h1>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="background" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#3730A3"/>
+    </linearGradient>
+    <linearGradient id="people" x1="20" y1="14" x2="46" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C7D2FE"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#background)"/>
+  <path d="M13 46.5C13 39.6 18.6 34 25.5 34H27V39H25.5C21.4 39 18 42.4 18 46.5V48H13V46.5Z" fill="#A5B4FC"/>
+  <path d="M51 46.5C51 39.6 45.4 34 38.5 34H37V39H38.5C42.6 39 46 42.4 46 46.5V48H51V46.5Z" fill="#A5B4FC"/>
+  <circle cx="19.5" cy="27.5" r="5.5" fill="#A5B4FC"/>
+  <circle cx="44.5" cy="27.5" r="5.5" fill="#A5B4FC"/>
+  <circle cx="32" cy="20" r="7" fill="url(#people)"/>
+  <path d="M19 49C19 40.7 24.8 34 32 34C39.2 34 45 40.7 45 49V51H19V49Z" fill="url(#people)"/>
+  <path d="M25 50.5H39" stroke="#EEF2FF" stroke-width="2" stroke-linecap="round" opacity=".65"/>
+</svg>

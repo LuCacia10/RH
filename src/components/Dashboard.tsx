@@ -7,7 +7,7 @@ import React from "react";
 import {
   Users,
   CalendarCheck2,
-  DollarSign,
+  Banknote,
   Clock,
   ArrowUpRight,
   TrendingUp,
@@ -170,12 +170,12 @@ export default function Dashboard({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Budget Paie Net</span>
             <div className="p-2.5 bg-sky-50 text-sky-600 rounded-lg">
-              <DollarSign className="w-5 h-5" />
+              <Banknote className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4">
             <h3 className="text-2xl font-bold tracking-tight text-slate-900 truncate">
-              {totalPayroll.toLocaleString("fr-FR")} FCFA
+              {totalPayroll.toLocaleString("fr-MG")} MGA
             </h3>
             <p className="text-[11px] text-slate-500 mt-2 block">
               Calculé sur le mois de <span className="font-medium text-slate-700">Mai 2026</span>
@@ -241,46 +241,46 @@ export default function Dashboard({
 
           {/* SGRH Quick Action links */}
           <div className="border-t border-slate-150 pt-5 mt-6">
-            <h5 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">Centre d'actions rapides</h5>
+            <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">Centre d'actions rapides</h5>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <button
                 id="act-recruiting"
                 onClick={() => onQuickAction("agents")}
-                className="p-3 text-left bg-slate-50 hover:bg-emerald-50 rounded-lg group border border-slate-200 transition-all text-xs"
+                className="p-3 text-left bg-[#111720] hover:bg-emerald-500/10 rounded-lg group border border-white/10 hover:border-emerald-400/40 transition-all text-xs"
               >
-                <PlusCircle className="w-4 h-4 text-emerald-600 mb-1 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold text-slate-900 block">Recruter un agent</span>
-                <span className="text-[10px] text-slate-500">Ajout au registre</span>
+                <PlusCircle className="w-4 h-4 text-emerald-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-slate-100 block">Recruter un agent</span>
+                <span className="text-[10px] text-slate-400">Ajout au registre</span>
               </button>
 
               <button
                 id="act-leave-validation"
                 onClick={() => onQuickAction("conges")}
-                className="p-3 text-left bg-slate-50 hover:bg-amber-50 rounded-lg group border border-slate-200 transition-all text-xs"
+                className="p-3 text-left bg-[#111720] hover:bg-amber-500/10 rounded-lg group border border-white/10 hover:border-amber-400/40 transition-all text-xs"
               >
-                <CalendarCheck2 className="w-4 h-4 text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold text-slate-900 block">Valider des congés</span>
-                <span className="text-[10px] text-slate-500">{pendingLeaves} en attente</span>
+                <CalendarCheck2 className="w-4 h-4 text-amber-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-slate-100 block">Valider des congés</span>
+                <span className="text-[10px] text-slate-400">{pendingLeaves} en attente</span>
               </button>
 
               <button
                 id="act-presence"
                 onClick={() => onQuickAction("presences")}
-                className="p-3 text-left bg-slate-50 hover:bg-indigo-50 rounded-lg group border border-slate-200 transition-all text-xs"
+                className="p-3 text-left bg-[#111720] hover:bg-indigo-500/10 rounded-lg group border border-white/10 hover:border-indigo-400/40 transition-all text-xs"
               >
-                <Clock className="w-4 h-4 text-indigo-600 mb-1 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold text-slate-900 block">Faire le pointage</span>
-                <span className="text-[10px] text-slate-500">Clôture journalière</span>
+                <Clock className="w-4 h-4 text-indigo-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-slate-100 block">Faire le pointage</span>
+                <span className="text-[10px] text-slate-400">Clôture journalière</span>
               </button>
 
               <button
                 id="act-payrolls"
                 onClick={() => onQuickAction("paie")}
-                className="p-3 text-left bg-slate-50 hover:bg-sky-50 rounded-lg group border border-slate-200 transition-all text-xs"
+                className="p-3 text-left bg-[#111720] hover:bg-sky-500/10 rounded-lg group border border-white/10 hover:border-sky-400/40 transition-all text-xs"
               >
-                <FileSpreadsheet className="w-4 h-4 text-sky-600 mb-1 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold text-slate-900 block">Fiches de Paie</span>
-                <span className="text-[10px] text-slate-500">Générer les bulletins</span>
+                <FileSpreadsheet className="w-4 h-4 text-sky-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-slate-100 block">Fiches de Paie</span>
+                <span className="text-[10px] text-slate-400">Générer les bulletins</span>
               </button>
             </div>
           </div>

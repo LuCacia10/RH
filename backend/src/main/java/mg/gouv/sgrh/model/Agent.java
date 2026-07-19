@@ -2,6 +2,7 @@ package mg.gouv.sgrh.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 
 @Entity
@@ -48,4 +49,10 @@ public class Agent {
     @ManyToOne
     @JoinColumn(name = "id_grade")
     private Grade grade;
+    @JsonProperty("id_sexe") public Long getSexeId(){return sexe==null?null:sexe.getId_valeur_reference();}
+    @JsonProperty("id_sexe") public void setSexeId(Long id){if(id==null){sexe=null;}else{ValeurReference v=new ValeurReference();v.setId_valeur_reference(id);sexe=v;}}
+    @JsonProperty("id_statut_agent") public Long getStatutId(){return statutAgent==null?null:statutAgent.getId_valeur_reference();}
+    @JsonProperty("id_statut_agent") public void setStatutId(Long id){if(id==null){statutAgent=null;}else{ValeurReference v=new ValeurReference();v.setId_valeur_reference(id);statutAgent=v;}}
+    @JsonProperty("id_grade") public Long getGradeId(){return grade==null?null:grade.getId_grade();}
+    @JsonProperty("id_grade") public void setGradeId(Long id){if(id==null){grade=null;}else{Grade v=new Grade();v.setId_grade(id);grade=v;}}
 }

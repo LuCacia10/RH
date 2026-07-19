@@ -19,7 +19,7 @@ html, body {
 }
 
 /* Modal and list backgrounds */
-.bg-slate-50, .bg-slate-100, .bg-slate-200/50, .bg-slate-100\/50, .bg-gray-50, .bg-gray-100 {
+.bg-slate-50, .bg-slate-100, .bg-slate-200\/50, .bg-slate-100\/50, .bg-gray-50, .bg-gray-100 {
   background-color: #0F1218 !important;
 }
 
