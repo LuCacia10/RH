@@ -48,7 +48,11 @@ CREATE TABLE utilisateurs(
  email VARCHAR(150) UNIQUE,
  mot_de_passe VARCHAR(255) NOT NULL,
  actif BOOLEAN DEFAULT TRUE,
- date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+ date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ id_agent BIGINT NULL COMMENT 'Périmètre personnel du rôle AGENT_PUBLIC',
+ id_service BIGINT NULL COMMENT 'Périmètre organisationnel du rôle CHEF_SERVICE',
+ INDEX idx_utilisateur_agent(id_agent),
+ INDEX idx_utilisateur_service(id_service)
 );
 
 CREATE TABLE utilisateur_roles(

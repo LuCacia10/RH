@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 export const API_URL=process.env.EXPO_PUBLIC_API_URL||'http://10.0.2.2:3030/api'; const KEY='sgrh_auth_token';
-export type AuthUser={id:number;username:string;email:string;roles:string[]};
+export type AuthUser={id:number;username:string;email:string;roles:string[];permissions:string[];agentId:number|null;serviceId:number|null};
+export type LoginChallenge={challengeId:string;emailMasked:string;expiresInSeconds:number};
 const request=async(path:string,options:RequestInit={})=>{const token=await AsyncStorage.getItem(KEY);const response=await fetch(`${API_URL}${path}`,{...options,headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:`Bearer ${token}`}:{ }),...options.headers}});if(!response.ok)throw new Error(response.status===401?'AUTH':`API_${response.status}`);return response.status===204?null:response.json();};
-export const login=async(username:string,password:string):Promise<AuthUser>=>{const r=await request('/auth/login',{method:'POST',body:JSON.stringify({username,password})});await AsyncStorage.setItem(KEY,r.token);const{token:_token,...user}=r;return user;};
+export const startLogin=(username:string,password:string):Promise<LoginChallenge>=>request('/auth/login',{method:'POST',body:JSON.stringify({username,password})});
+export const verifyLogin=async(challengeId:string,code:string):Promise<AuthUser>=>{const r=await request('/auth/verify-otp',{method:'POST',body:JSON.stringify({challengeId,code})});await AsyncStorage.setItem(KEY,r.token);const{token:_token,...user}=r;return user;};
 export const restoreUser=async():Promise<AuthUser|null>=>{if(!await AsyncStorage.getItem(KEY))return null;try{const{token:_token,...user}=await request('/auth/me');return user;}catch{await AsyncStorage.removeItem(KEY);return null;}};
 export const logout=()=>AsyncStorage.removeItem(KEY);export const get=(p:string)=>request(p);export const post=(p:string,d:unknown)=>request(p,{method:'POST',body:JSON.stringify(d)});export const put=(p:string,d:unknown)=>request(p,{method:'PUT',body:JSON.stringify(d)});

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CalendarDays,
   CalendarCheck2,
@@ -22,8 +22,10 @@ interface CongesAbsencesProps {
   agents: Agent[];
   typesConges: TypeConge[];
   valeursRef: ValeurReference[];
-  onAddDemandeConge: (demande: DemandeConge) => void;
+  onAddDemandeConge: (demande: Omit<DemandeConge, "id_conge" | "id_statut_conge">) => Promise<void>;
   onModifierStatutConge: (congeId: number, nouveauStatut: number) => void;
+  beneficiaries: { userId: number; username: string; email: string; agentId: number; matricule: string; nomComplet: string }[];
+  permissions: string[];
 }
 
 export default function CongesAbsences({
@@ -32,19 +34,32 @@ export default function CongesAbsences({
   typesConges,
   valeursRef,
   onAddDemandeConge,
-  onModifierStatutConge
+  onModifierStatutConge,
+  beneficiaries,
+  permissions
 }: CongesAbsencesProps) {
   const [activeTab, setActiveTab] = useState<"liste" | "nouvelle">("liste");
   const [selectedAgentId, setSelectedAgentId] = useState<number>(agents[0]?.id_agent || 1);
   const [selectedTypeId, setSelectedTypeId] = useState<number>(typesConges[0]?.id_type_conge || 1);
   const [startDate, setStartDate] = useState("2026-08-01");
   const [endDate, setEndDate] = useState("2026-08-15");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const canApprove = permissions.includes("LEAVE_APPROVE");
+  const canCreate = permissions.includes("LEAVE_REQUEST") || permissions.includes("LEAVE_MANAGE");
+
+  useEffect(() => {
+    if (beneficiaries.length && !beneficiaries.some(user => user.agentId === selectedAgentId)) setSelectedAgentId(beneficiaries[0].agentId);
+  }, [beneficiaries, selectedAgentId]);
 
   // Calculated stats
   const totalCount = conges.length;
-  const pendingCount = conges.filter(c => c.id_statut_conge === 401).length;
-  const approvedCount = conges.filter(c => c.id_statut_conge === 402).length;
-  const rejectedCount = conges.filter(c => c.id_statut_conge === 403).length;
+  const pendingStatusId = valeursRef.find(value => value.code === "ATTENTE")?.id_valeur_reference ?? 401;
+  const approvedStatusId = valeursRef.find(value => value.code === "VALIDE")?.id_valeur_reference ?? 402;
+  const rejectedStatusId = valeursRef.find(value => value.code === "REJETE")?.id_valeur_reference ?? 403;
+  const pendingCount = conges.filter(c => c.id_statut_conge === pendingStatusId).length;
+  const approvedCount = conges.filter(c => c.id_statut_conge === approvedStatusId).length;
+  const rejectedCount = conges.filter(c => c.id_statut_conge === rejectedStatusId).length;
 
   const getAgentName = (id: number) => {
     const ag = agents.find(a => a.id_agent === id);
@@ -71,8 +86,9 @@ export default function CongesAbsences({
   // Validation guard
   const durationExceededRefMax = calculatedDays > currentTypeMaxDays;
 
-  const handleCreateDemande = (e: React.FormEvent) => {
+  const handleCreateDemande = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError("");
     if (calculatedDays <= 0) {
       alert("La date de fin doit être postérieure ou égale à la date de début.");
       return;
@@ -83,17 +99,22 @@ export default function CongesAbsences({
       return;
     }
 
-    const newDemande: DemandeConge = {
-      id_conge: conges.length + 1,
+    const newDemande: Omit<DemandeConge, "id_conge" | "id_statut_conge"> = {
       id_agent: Number(selectedAgentId),
       id_type_conge: Number(selectedTypeId),
       date_debut: startDate,
-      date_fin: endDate,
-      id_statut_conge: 401 // En attente
+      date_fin: endDate
     };
 
-    onAddDemandeConge(newDemande);
-    setActiveTab("liste");
+    setIsSubmitting(true);
+    try {
+      await onAddDemandeConge(newDemande);
+      setActiveTab("liste");
+    } catch {
+      setSubmitError("La demande n'a pas pu être enregistrée. Vérifiez la connexion au serveur puis réessayez.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -139,14 +160,14 @@ export default function CongesAbsences({
           >
             Suivi des Demandes de Congé
           </button>
-          <button
+          {canCreate && <button
             onClick={() => setActiveTab("nouvelle")}
             className={`pb-3 border-b-2 px-1 transition ${
               activeTab === "nouvelle" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             Déposer une Demande de Congé
-          </button>
+          </button>}
         </div>
 
         <span className="text-[10px] text-slate-400 font-mono tracking-wider italic uppercase">
@@ -164,9 +185,9 @@ export default function CongesAbsences({
 
           <div className="space-y-3.5">
             {conges.map((conge) => {
-              const isPending = conge.id_statut_conge === 401;
-              const isApproved = conge.id_statut_conge === 402;
-              const isRejected = conge.id_statut_conge === 403;
+              const isPending = conge.id_statut_conge === pendingStatusId;
+              const isApproved = conge.id_statut_conge === approvedStatusId;
+              const isRejected = conge.id_statut_conge === rejectedStatusId;
 
               const startF = new Date(conge.date_debut);
               const endF = new Date(conge.date_fin);
@@ -209,7 +230,7 @@ export default function CongesAbsences({
                   {/* Actions / Status block */}
                   <div className="shrink-0 flex items-center gap-3 w-full sm:w-auto justify-end">
                     
-                    {isPending ? (
+                    {isPending ? (canApprove ? (
                       <div className="flex gap-2 items-center">
                         <span className="px-2.5 py-1 rounded bg-amber-50 border border-amber-200 text-amber-700 font-bold text-[10px] uppercase flex items-center gap-1">
                           <Hourglass className="w-3 h-3 animate-spin" />
@@ -219,21 +240,26 @@ export default function CongesAbsences({
                         <div className="flex gap-2">
                           <button
                             id={`approve-conge-${conge.id_conge}`}
-                            onClick={() => onModifierStatutConge(conge.id_conge, 402)}
+                            onClick={() => onModifierStatutConge(conge.id_conge, approvedStatusId)}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white p-1 px-3.5 rounded text-xs font-semibold cursor-pointer transition shadow-sm h-8"
                           >
                             Valider
                           </button>
                           <button
                             id={`reject-conge-${conge.id_conge}`}
-                            onClick={() => onModifierStatutConge(conge.id_conge, 403)}
+                            onClick={() => onModifierStatutConge(conge.id_conge, rejectedStatusId)}
                             className="bg-white hover:bg-slate-100 border border-slate-350 p-1 px-3 text-slate-700 font-medium text-xs rounded cursor-pointer transition h-8"
                           >
                             Rejeter
                           </button>
                         </div>
                       </div>
-                    ) : isApproved ? (
+                    ) : (
+                      <span className="px-2.5 py-1 rounded bg-amber-50 border border-amber-200 text-amber-700 font-bold text-[10px] uppercase flex items-center gap-1">
+                        <Hourglass className="w-3 h-3 animate-spin" />
+                        <span>En attente de validation RH</span>
+                      </span>
+                    )) : isApproved ? (
                       <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs flex items-center gap-1.5">
                         <CheckCircle className="w-4 h-4 text-emerald-600" />
                         <span>Demande Approuvée</span>
@@ -272,11 +298,13 @@ export default function CongesAbsences({
                 <select
                   value={selectedAgentId}
                   onChange={(e) => setSelectedAgentId(Number(e.target.value))}
+                  disabled={!beneficiaries.length}
                   className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 focus:outline-emerald-500 text-xs text-slate-800 font-semibold"
                 >
-                  {agents.map(a => (
-                    <option key={a.id_agent} value={a.id_agent}>
-                      {a.nom} {a.prenom} ({a.matricule})
+                  {!beneficiaries.length && <option value="">Aucun utilisateur associé à un dossier agent</option>}
+                  {beneficiaries.map(user => (
+                    <option key={user.userId} value={user.agentId}>
+                      {user.username} — {user.nomComplet} ({user.matricule})
                     </option>
                   ))}
                 </select>
@@ -352,6 +380,7 @@ export default function CongesAbsences({
               </div>
 
               <div className="pt-4 flex justify-end gap-2.5">
+                {submitError && <p role="alert" className="mr-auto text-xs text-rose-600">{submitError}</p>}
                 <button
                   type="button"
                   onClick={() => setActiveTab("liste")}
@@ -361,12 +390,12 @@ export default function CongesAbsences({
                 </button>
                 <button
                   type="submit"
-                  disabled={durationExceededRefMax}
+                  disabled={durationExceededRefMax || !beneficiaries.length || isSubmitting}
                   className={`p-2 px-5 font-semibold text-xs text-white rounded shadow-sm cursor-pointer ${
-                    durationExceededRefMax ? "bg-slate-300 pointer-events-none" : "bg-emerald-600 hover:bg-emerald-700"
+                    durationExceededRefMax || !beneficiaries.length || isSubmitting ? "bg-slate-300 pointer-events-none" : "bg-emerald-600 hover:bg-emerald-700"
                   }`}
                 >
-                  Soumettre au validateur hiérarchique
+                  {isSubmitting ? "Envoi en cours…" : "Soumettre au validateur hiérarchique"}
                 </button>
               </div>
             </div>

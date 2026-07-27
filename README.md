@@ -17,6 +17,15 @@ Système de gestion des ressources humaines de l'administration publique malgach
 
 Créez la base avec `bdd/RH.sql`, puis adaptez au besoin les variables de connexion Spring. Par défaut, l'API utilise `root` sans mot de passe sur la base `sgrh_public`.
 
+Pour charger le jeu de démonstration complet (données réalistes mais identités fictives), exécutez ensuite `bdd/RH_test_data.sql`. Ce script alimente les 41 tables et peut être relancé sans dupliquer les lignes possédant les mêmes identifiants :
+
+```powershell
+cmd /c "mysql -u root < bdd\RH.sql"
+cmd /c "mysql -u root sgrh_public < bdd\RH_test_data.sql"
+```
+
+Les comptes créés par ce jeu de test utilisent temporairement le mot de passe `Demo@2026`. Dans la configuration locale demandée, les mots de passe sont stockés en clair avec `PASSWORD_STORAGE=plaintext`. Ce mode est strictement réservé à la démonstration locale ; utilisez `PASSWORD_STORAGE=bcrypt` avant tout déploiement ou accès réseau.
+
 ```powershell
 cd backend
 mvn spring-boot:run
@@ -28,6 +37,19 @@ Au premier démarrage, le backend crée les références essentielles et un admi
 - mot de passe : `Admin@123`
 
 Changez ces valeurs hors développement avec `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL` et surtout `JWT_SECRET`.
+
+La connexion utilise une double authentification par e-mail. Après validation du mot de passe, un code à 6 chiffres valable 5 minutes est envoyé à l'adresse du compte. Configurez un serveur SMTP avant de démarrer l'API (Mailpit ou MailHog sur le port `1025` conviennent en local) :
+
+```env
+MAIL_HOST=localhost
+MAIL_PORT=1025
+MAIL_FROM=no-reply@sgrh.gov.mg
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_SMTP_AUTH=false
+MAIL_STARTTLS=false
+OTP_EXPIRATION_SECONDS=300
+```
 
 ## 2. Application web
 
@@ -71,4 +93,4 @@ npm run typecheck
 npx expo export --platform android
 ```
 
-Les routes métier sous `/api/**` nécessitent un jeton `Bearer`. Seule `/api/auth/login` est publique.
+Les routes métier sous `/api/**` nécessitent un jeton `Bearer`. Seules `/api/auth/login` et `/api/auth/verify-otp` sont publiques.

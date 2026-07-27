@@ -2,6 +2,7 @@ package mg.gouv.sgrh.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -20,6 +21,7 @@ public class Utilisateur {
     private String email;
 
     @Column(nullable = false, length = 255)
+    @JsonIgnore
     private String mot_de_passe;
 
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
@@ -35,4 +37,10 @@ public class Utilisateur {
         inverseJoinColumns = @JoinColumn(name = "id_role")
     )
     private Set<Role> roles;
+
+    @Column(name = "id_agent")
+    private Long id_agent;
+
+    @Column(name = "id_service")
+    private Long id_service;
 }

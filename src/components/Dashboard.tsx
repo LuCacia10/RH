@@ -16,6 +16,9 @@ import {
   HelpCircle
 } from "lucide-react";
 import { Agent, Ministere, Presence, DemandeConge, BulletinPaie, JournalAudit } from "../types";
+import type { AuthUser } from "../services/api";
+import { roleLabel } from "../security/rbac";
+import AnimatedCounter from "./AnimatedCounter";
 
 interface DashboardProps {
   agents: Agent[];
@@ -25,6 +28,8 @@ interface DashboardProps {
   bulletins: BulletinPaie[];
   audits: JournalAudit[];
   onQuickAction: (tab: string) => void;
+  user: AuthUser;
+  pendingLeaveStatusId: number;
 }
 
 export default function Dashboard({
@@ -34,8 +39,12 @@ export default function Dashboard({
   conges,
   bulletins,
   audits,
-  onQuickAction
+  onQuickAction,
+  user,
+  pendingLeaveStatusId
 }: DashboardProps) {
+  const can = (...permissions: string[]) => permissions.some(permission => (user.permissions || []).includes(permission));
+  const isResponsableRh = user.roles.includes("RESPONSABLE_RH");
   // Stat 1: Total Agents
   const totalAgents = agents.length;
   const menCount = agents.filter(a => a.id_sexe === 101).length;
@@ -54,7 +63,7 @@ export default function Dashboard({
   const presenceRate = Math.round((presentCount / (activeCount - excuseCount || 5)) * 100) || 80;
 
   // Stat 3: Demandes de congés en attente
-  const pendingLeaves = conges.filter(c => c.id_statut_conge === 401).length;
+  const pendingLeaves = conges.filter(c => c.id_statut_conge === pendingLeaveStatusId).length;
 
   // Stat 4: Budget Paie Mensuelle estimé
   const totalPayroll = bulletins.reduce((acc, curr) => acc + curr.salaire_net, 0) || 2886600;
@@ -85,9 +94,9 @@ export default function Dashboard({
           <span className="px-2.5 py-0.5 bg-indigo-500/20 rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-300 border border-indigo-500/30">
             Portail Ministériel SGRH
           </span>
-          <h2 className="text-2xl font-bold tracking-tight">Bonjour, Administrateur Central</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Bonjour, {roleLabel(user.roles)}</h2>
           <p className="text-slate-300 text-xs max-w-xl">
-            Bienvenue dans l'espace national de contrôle des ressources humaines de l'administration publique. Tous vos indicateurs statistiques et dossiers agents ont été chargés.
+            Vos indicateurs et dossiers sont limités au périmètre autorisé par votre rôle dans l'administration publique.
           </p>
         </div>
 
@@ -111,11 +120,11 @@ export default function Dashboard({
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-slate-900">{totalAgents}</h3>
+            <h3 className="text-3xl font-bold tracking-tight text-slate-900"><AnimatedCounter value={totalAgents} /></h3>
             <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-              <span className="font-semibold text-slate-700">{menCount} Hommes</span>
+              <span className="font-semibold text-slate-700"><AnimatedCounter value={menCount} /> Hommes</span>
               <span>•</span>
-              <span className="font-semibold text-slate-700">{womenCount} Femmes ({womenRatio}%)</span>
+              <span className="font-semibold text-slate-700"><AnimatedCounter value={womenCount} /> Femmes (<AnimatedCounter value={womenRatio} suffix="%" />)</span>
             </p>
           </div>
         </div>
@@ -129,7 +138,7 @@ export default function Dashboard({
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-slate-900">{presenceRate}%</h3>
+            <h3 className="text-3xl font-bold tracking-tight text-slate-900"><AnimatedCounter value={presenceRate} suffix="%" /></h3>
             <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
               <div 
                 className="bg-indigo-600 h-1.5 rounded-full transition-all" 
@@ -137,7 +146,7 @@ export default function Dashboard({
               ></div>
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              Relevé du jour : <span className="font-medium text-slate-700">{presentCount} actifs</span> • <span className="text-amber-600 font-medium">{absentCount} absences</span>
+              Relevé du jour : <span className="font-medium text-slate-700"><AnimatedCounter value={presentCount} /> actifs</span> • <span className="text-amber-600 font-medium"><AnimatedCounter value={absentCount} /> absences</span>
             </p>
           </div>
         </div>
@@ -151,7 +160,7 @@ export default function Dashboard({
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-slate-900">{pendingLeaves}</h3>
+            <h3 className="text-3xl font-bold tracking-tight text-slate-900"><AnimatedCounter value={pendingLeaves} /></h3>
             <p className="text-xs text-slate-500 mt-1">
               {pendingLeaves > 0 ? (
                 <span className="text-amber-600 font-semibold flex items-center gap-1.5">
@@ -166,7 +175,7 @@ export default function Dashboard({
         </div>
 
         {/* Card 4: Masse salariale mensuelle */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+        {isResponsableRh && <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Budget Paie Net</span>
             <div className="p-2.5 bg-sky-50 text-sky-600 rounded-lg">
@@ -175,13 +184,13 @@ export default function Dashboard({
           </div>
           <div className="mt-4">
             <h3 className="text-2xl font-bold tracking-tight text-slate-900 truncate">
-              {totalPayroll.toLocaleString("fr-MG")} MGA
+              <AnimatedCounter value={totalPayroll} suffix=" MGA" />
             </h3>
             <p className="text-[11px] text-slate-500 mt-2 block">
               Calculé sur le mois de <span className="font-medium text-slate-700">Mai 2026</span>
             </p>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Main Charts & Actions area */}
@@ -225,7 +234,7 @@ export default function Dashboard({
                       <span className="font-normal text-slate-500 truncate max-w-sm hidden sm:inline">{stat.fullName}</span>
                     </span>
                     <span className="text-slate-900 font-bold">
-                      {stat.count} {stat.count > 1 ? "agents" : "agent"} ({Math.round(stat.percentage)}%)
+                      <AnimatedCounter value={stat.count} /> {stat.count > 1 ? "agents" : "agent"} (<AnimatedCounter value={Math.round(stat.percentage)} suffix="%" />)
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
@@ -243,7 +252,7 @@ export default function Dashboard({
           <div className="border-t border-slate-150 pt-5 mt-6">
             <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">Centre d'actions rapides</h5>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <button
+              {isResponsableRh && can("AGENT_MANAGE") && <button
                 id="act-recruiting"
                 onClick={() => onQuickAction("agents")}
                 className="p-3 text-left bg-[#111720] hover:bg-emerald-500/10 rounded-lg group border border-white/10 hover:border-emerald-400/40 transition-all text-xs"
@@ -251,19 +260,19 @@ export default function Dashboard({
                 <PlusCircle className="w-4 h-4 text-emerald-400 mb-1.5 group-hover:scale-110 transition-transform" />
                 <span className="font-semibold text-slate-100 block">Recruter un agent</span>
                 <span className="text-[10px] text-slate-400">Ajout au registre</span>
-              </button>
+              </button>}
 
-              <button
+              {can("LEAVE_MANAGE", "LEAVE_APPROVE") && <button
                 id="act-leave-validation"
                 onClick={() => onQuickAction("conges")}
                 className="p-3 text-left bg-[#111720] hover:bg-amber-500/10 rounded-lg group border border-white/10 hover:border-amber-400/40 transition-all text-xs"
               >
                 <CalendarCheck2 className="w-4 h-4 text-amber-400 mb-1.5 group-hover:scale-110 transition-transform" />
-                <span className="font-semibold text-slate-100 block">Valider des congés</span>
-                <span className="text-[10px] text-slate-400">{pendingLeaves} en attente</span>
-              </button>
+                <span className="font-semibold text-slate-100 block">{can("LEAVE_APPROVE") ? "Valider des congés" : "Gérer les demandes"}</span>
+                <span className="text-[10px] text-slate-400"><AnimatedCounter value={pendingLeaves} /> en attente</span>
+              </button>}
 
-              <button
+              {can("PRESENCE_VALIDATE") && <button
                 id="act-presence"
                 onClick={() => onQuickAction("presences")}
                 className="p-3 text-left bg-[#111720] hover:bg-indigo-500/10 rounded-lg group border border-white/10 hover:border-indigo-400/40 transition-all text-xs"
@@ -271,9 +280,9 @@ export default function Dashboard({
                 <Clock className="w-4 h-4 text-indigo-400 mb-1.5 group-hover:scale-110 transition-transform" />
                 <span className="font-semibold text-slate-100 block">Faire le pointage</span>
                 <span className="text-[10px] text-slate-400">Clôture journalière</span>
-              </button>
+              </button>}
 
-              <button
+              {can("PAYROLL_MANAGE") && <button
                 id="act-payrolls"
                 onClick={() => onQuickAction("paie")}
                 className="p-3 text-left bg-[#111720] hover:bg-sky-500/10 rounded-lg group border border-white/10 hover:border-sky-400/40 transition-all text-xs"
@@ -281,7 +290,7 @@ export default function Dashboard({
                 <FileSpreadsheet className="w-4 h-4 text-sky-400 mb-1.5 group-hover:scale-110 transition-transform" />
                 <span className="font-semibold text-slate-100 block">Fiches de Paie</span>
                 <span className="text-[10px] text-slate-400">Générer les bulletins</span>
-              </button>
+              </button>}
             </div>
           </div>
         </div>

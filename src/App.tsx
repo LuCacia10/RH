@@ -16,9 +16,10 @@ import Careers from "./components/Careers";
 import Evaluations from "./components/Evaluations";
 import Formations from "./components/Formations";
 import Paie from "./components/Paie";
-import SchemaVisualizer from "./components/SchemaVisualizer";
 import Login from "./components/Login";
-import { AuthUser, clearSession, fetchData, getCurrentUser, getStoredToken, postData, putData } from "./services/api";
+import RbacAdministration from "./components/RbacAdministration";
+import { AuthUser, clearSession, fetchData, postData, putData } from "./services/api";
+import { canAccessTab } from "./security/rbac";
 
 // Raw definitions and preloads
 import {
@@ -57,8 +58,7 @@ import {
   initialPrimes,
   initialRetenues,
   initialBulletinsPaie,
-  initialJournalAudit,
-  sgrhSqlSchema
+  initialJournalAudit
 } from "./mockData";
 
 import {
@@ -79,7 +79,6 @@ import {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(Boolean(getStoredToken()));
   const [activeTab, setActiveTab] = useState<string>("dashboard");
 
   // React State stores
@@ -109,12 +108,21 @@ export default function App() {
   const [audits, setAudits] = useState<JournalAudit[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [notesEvaluation, setNotesEvaluation] = useState<any[]>([]);
+  const [leaveBeneficiaries, setLeaveBeneficiaries] = useState<any[]>([]);
 
   useEffect(() => {
-    const restore = async () => { if (!getStoredToken()) return; try { setCurrentUser(await getCurrentUser()); } catch { clearSession(); } finally { setAuthLoading(false); } };
-    restore(); const logout = () => setCurrentUser(null); window.addEventListener('sgrh:unauthorized', logout);
+    clearSession();
+    const logout = () => setCurrentUser(null);
+    window.addEventListener('sgrh:unauthorized', logout);
     return () => window.removeEventListener('sgrh:unauthorized', logout);
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || canAccessTab(currentUser.permissions || [], activeTab)) return;
+    const fallback = ["dashboard","agents","conges","presences","carrieres","evaluations","formations","paie","organisation","rbac"]
+      .find(tab => canAccessTab(currentUser.permissions || [], tab));
+    if (fallback) setActiveTab(fallback);
+  }, [currentUser, activeTab]);
 
   // Fetch all data from backend after authentication
   useEffect(() => {
@@ -132,8 +140,27 @@ export default function App() {
       
       const refs = await fetchData('/references/valeurs');
       if (refs) setValeursRef(refs);
+      const beneficiaries = await fetchData('/directory/leave-beneficiaries');
+      if (beneficiaries) setLeaveBeneficiaries(beneficiaries);
     };
     loadDashboardData();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser || !currentUser.permissions?.some(permission =>
+      ["LEAVE_MANAGE", "LEAVE_APPROVE", "LEAVE_VIEW_SELF"].includes(permission)
+    )) return;
+
+    const refreshConges = async () => {
+      const rows = await fetchData('/conges');
+      if (rows) setConges(rows);
+    };
+    const intervalId = window.setInterval(refreshConges, 5000);
+    window.addEventListener("focus", refreshConges);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshConges);
+    };
   }, [currentUser]);
 
   // LocalStorage logic removed - synchronising with backend now
@@ -183,13 +210,12 @@ export default function App() {
     logAudit("documents_agents", `INSERT INTO documents_agents - Ajout pièce '${fileName}' pour l'agent ${agName}`);
   };
 
-  const handleAddDemandeConge = async (demande: DemandeConge) => {
+  const handleAddDemandeConge = async (demande: Omit<DemandeConge, "id_conge" | "id_statut_conge">) => {
     const saved = await postData('/conges', demande);
-    if (saved) {
-      setConges(prev => [...prev, saved]);
-      const agName = agents.find(a => a.id_agent === demande.id_agent)?.nom || "";
-      logAudit("demandes_conges", `INSERT INTO demandes_conges - Demande de congé initiée pour l'agent ${agName}`);
-    }
+    if (!saved) throw new Error("La demande de congé n'a pas été enregistrée.");
+    setConges(prev => [...prev.filter(item => item.id_conge !== saved.id_conge), saved]);
+    const agName = agents.find(a => a.id_agent === demande.id_agent)?.nom || "";
+    logAudit("demandes_conges", `INSERT INTO demandes_conges - Demande de congé initiée pour l'agent ${agName}`);
   };
 
   const handleModifierStatutConge = async (congeId: number, nouveauStatut: number) => {
@@ -202,7 +228,7 @@ export default function App() {
     const conge = conges.find(c => c.id_conge === congeId);
     if (!conge) return;
     const agName = agents.find(a => a.id_agent === conge.id_agent)?.nom || "";
-    const label = nouveauStatut === 402 ? "APPROBATION" : "REJET";
+    const label = valeursRef.find(value => value.id_valeur_reference === nouveauStatut)?.code === "VALIDE" ? "APPROBATION" : "REJET";
     logAudit("demandes_conges", `UPDATE demandes_conges SET id_statut_conge = ${nouveauStatut} - ${label} congé agent ${agName}`);
   };
 
@@ -274,10 +300,11 @@ export default function App() {
     }
   };
 
-  if (authLoading) return <div className="min-h-screen bg-[#0A0C10] text-indigo-400 grid place-items-center">Vérification de la session…</div>;
   if (!currentUser) return <Login onAuthenticated={setCurrentUser}/>;
   const handleLogout=()=>{clearSession();setCurrentUser(null);};
-  const pendingLeavesCount = conges.filter(c => c.id_statut_conge === 401).length;
+  const pendingLeaveStatusId = valeursRef.find(value => value.code === "ATTENTE")?.id_valeur_reference ?? 401;
+  const pendingLeavesCount = conges.filter(c => c.id_statut_conge === pendingLeaveStatusId).length;
+  const navigateAuthorized = (tab: string) => { if (canAccessTab(currentUser.permissions || [], tab)) setActiveTab(tab); };
 
   return (
     <div id="root-sgrh" className="min-h-screen bg-[#0A0C10] text-slate-300 font-sans flex antialiased">
@@ -285,9 +312,10 @@ export default function App() {
       {/* 1. Global Side menu */}
       <Sidebar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={navigateAuthorized}
         agentCount={agents.length}
         pendingLeavesCount={pendingLeavesCount}
+        permissions={currentUser.permissions || []}
       />
 
       {/* 2. Main content chassis wrapper */}
@@ -321,7 +349,9 @@ export default function App() {
               conges={conges}
               bulletins={bulletins}
               audits={audits}
-              onQuickAction={(tab) => setActiveTab(tab)}
+              onQuickAction={navigateAuthorized}
+              user={currentUser}
+              pendingLeaveStatusId={pendingLeaveStatusId}
             />
           )}
 
@@ -369,6 +399,8 @@ export default function App() {
               valeursRef={valeursRef}
               onAddDemandeConge={handleAddDemandeConge}
               onModifierStatutConge={handleModifierStatutConge}
+              beneficiaries={leaveBeneficiaries}
+              permissions={currentUser.permissions || []}
             />
           )}
 
@@ -432,11 +464,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === "db-schema" && (
-            <SchemaVisualizer 
-              ddlScript={sgrhSqlSchema} 
-            />
-          )}
+          {activeTab === "rbac" && <RbacAdministration />}
         </div>
 
       </main>

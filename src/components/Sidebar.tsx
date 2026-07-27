@@ -15,19 +15,20 @@ import {
   Award,
   BookOpen,
   FileText,
-  Database,
-  Building,
-  ShieldCheck
+  ShieldCheck,
+  KeyRound
 } from "lucide-react";
+import { canAccessTab } from "../security/rbac";
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   agentCount: number;
   pendingLeavesCount: number;
+  permissions: string[];
 }
 
-export default function Sidebar({ activeTab, setActiveTab, agentCount, pendingLeavesCount }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, agentCount, pendingLeavesCount, permissions }: SidebarProps) {
   const menuItems = [
     { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
     { id: "agents", label: "Agents & Dossiers", icon: Users, badge: agentCount },
@@ -38,8 +39,8 @@ export default function Sidebar({ activeTab, setActiveTab, agentCount, pendingLe
     { id: "evaluations", label: "Évaluations", icon: Award },
     { id: "formations", label: "Formations & Compétences", icon: BookOpen },
     { id: "paie", label: "Gestion de la Paie", icon: FileText },
-    { id: "db-schema", label: "Modèle SQL & Audits", icon: Database }
-  ];
+    { id: "rbac", label: "Utilisateurs & Accès", icon: KeyRound }
+  ].filter(item => canAccessTab(permissions, item.id));
 
   return (
     <div className="w-72 bg-[#0F1218] text-slate-300 flex flex-col border-r border-white/10 h-screen sticky top-0">

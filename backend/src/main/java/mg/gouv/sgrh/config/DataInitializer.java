@@ -9,14 +9,24 @@ import mg.gouv.sgrh.model.Utilisateur;
 import mg.gouv.sgrh.repository.RoleRepository;
 import mg.gouv.sgrh.repository.UtilisateurRepository;
 import mg.gouv.sgrh.repository.TypeCongeRepository;
+import mg.gouv.sgrh.repository.PermissionRepository;
+import mg.gouv.sgrh.repository.AgentRepository;
+import mg.gouv.sgrh.model.Permission;
+import mg.gouv.sgrh.model.Agent;
 import mg.gouv.sgrh.model.TypeConge;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Set;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 
 @Configuration
 public class DataInitializer {
@@ -54,21 +64,76 @@ public class DataInitializer {
     }
 
     @Bean
-    CommandLineRunner initAdmin(RoleRepository roles, UtilisateurRepository users) {
+    @Order(1)
+    CommandLineRunner initRbac(RoleRepository roles, PermissionRepository permissions, UtilisateurRepository users,
+                               PasswordEncoder encoder) {
         return args -> {
-            Role role = roles.findByCode("ADMIN").orElseGet(() -> {
-                Role value = new Role(); value.setCode("ADMIN"); value.setNom("Administrateur SGRH"); return roles.save(value);
-            });
+            Map<String, String> definitions = new LinkedHashMap<>();
+            definitions.put("DASHBOARD_NATIONAL", "Tableau de bord national"); definitions.put("DASHBOARD_RH", "Tableau de bord RH");
+            definitions.put("DASHBOARD_SERVICE", "Tableau de bord du service"); definitions.put("DASHBOARD_PERSONAL", "Tableau de bord personnel");
+            definitions.put("USER_MANAGE", "Gérer les utilisateurs"); definitions.put("ROLE_MANAGE", "Gérer les rôles");
+            definitions.put("PERMISSION_MANAGE", "Gérer les permissions"); definitions.put("SYSTEM_MANAGE", "Gérer les paramètres système");
+            definitions.put("BACKUP_MANAGE", "Gérer les sauvegardes"); definitions.put("AUDIT_VIEW", "Consulter le journal d'audit");
+            definitions.put("REPORT_NATIONAL", "Générer les rapports nationaux"); definitions.put("REPORT_ADMIN", "Générer les rapports administratifs");
+            definitions.put("STATS_RH", "Consulter les statistiques RH"); definitions.put("ORG_VIEW", "Consulter l'organisation");
+            definitions.put("ORG_MANAGE", "Gérer l'organisation administrative"); definitions.put("REFERENCE_VIEW", "Consulter les référentiels");
+            definitions.put("AGENT_VIEW_ALL", "Consulter tous les agents"); definitions.put("AGENT_VIEW_SERVICE", "Consulter les agents de son service");
+            definitions.put("AGENT_VIEW_SELF", "Consulter son dossier personnel"); definitions.put("AGENT_MANAGE", "Gérer les dossiers agents");
+            definitions.put("AGENT_DELETE", "Supprimer un agent"); definitions.put("AGENT_SELF_EDIT", "Modifier ses informations personnelles");
+            definitions.put("CAREER_MANAGE", "Gérer les carrières et affectations"); definitions.put("CAREER_VIEW_SELF", "Consulter sa carrière");
+            definitions.put("LEAVE_MANAGE", "Gérer les congés"); definitions.put("LEAVE_APPROVE", "Approuver ou refuser les congés");
+            definitions.put("LEAVE_REQUEST", "Demander un congé"); definitions.put("LEAVE_VIEW_SELF", "Consulter ses congés");
+            definitions.put("PRESENCE_VALIDATE", "Valider les présences"); definitions.put("PRESENCE_VIEW_SERVICE", "Consulter les présences du service");
+            definitions.put("EVALUATION_MANAGE", "Gérer les évaluations"); definitions.put("EVALUATION_SERVICE", "Évaluer les agents du service");
+            definitions.put("TRAINING_MANAGE", "Gérer les formations"); definitions.put("SANCTION_MANAGE", "Gérer les sanctions");
+            definitions.put("REWARD_MANAGE", "Gérer les récompenses"); definitions.put("PAYROLL_VIEW", "Consulter la paie");
+            definitions.put("PAYROLL_MANAGE", "Gérer la paie"); definitions.put("DOCUMENT_SELF_DOWNLOAD", "Télécharger ses documents");
+            definitions.put("NOTIFICATION_VIEW", "Consulter les notifications"); definitions.put("PASSWORD_CHANGE", "Modifier son mot de passe");
+
+            Map<String, Permission> saved = definitions.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry ->
+                permissions.findByCode(entry.getKey()).orElseGet(() -> { Permission p = new Permission(); p.setCode(entry.getKey()); p.setNom(entry.getValue()); return permissions.save(p); })
+            ));
+            Set<String> operationalRhPermissions = Set.of(
+                "AGENT_VIEW_ALL", "AGENT_VIEW_SERVICE", "AGENT_VIEW_SELF", "AGENT_MANAGE", "AGENT_DELETE", "AGENT_SELF_EDIT",
+                "LEAVE_MANAGE", "LEAVE_APPROVE", "LEAVE_REQUEST", "LEAVE_VIEW_SELF",
+                "PAYROLL_VIEW", "PAYROLL_MANAGE"
+            );
+            Role admin = role(roles, "ADMIN_CENTRAL", "Administrateur Central RH", saved.entrySet().stream()
+                .filter(entry -> !operationalRhPermissions.contains(entry.getKey()))
+                .map(Map.Entry::getValue).collect(Collectors.toSet()));
+            role(roles, "RESPONSABLE_RH", "Responsable RH", permissionSet(saved,
+                "DASHBOARD_RH","STATS_RH","REPORT_ADMIN","ORG_VIEW","REFERENCE_VIEW","AGENT_VIEW_ALL","AGENT_MANAGE","CAREER_MANAGE",
+                "LEAVE_APPROVE","PRESENCE_VIEW_SERVICE","EVALUATION_MANAGE","TRAINING_MANAGE","SANCTION_MANAGE","REWARD_MANAGE","PAYROLL_VIEW","PAYROLL_MANAGE","AUDIT_VIEW"));
+            role(roles, "CHEF_SERVICE", "Chef de Service", permissionSet(saved,
+                "DASHBOARD_SERVICE","AGENT_VIEW_SERVICE","LEAVE_MANAGE","PRESENCE_VALIDATE","PRESENCE_VIEW_SERVICE","EVALUATION_SERVICE","STATS_RH","NOTIFICATION_VIEW","REFERENCE_VIEW"));
+            role(roles, "AGENT_PUBLIC", "Agent Public", permissionSet(saved,
+                "DASHBOARD_PERSONAL","AGENT_VIEW_SELF","AGENT_SELF_EDIT","CAREER_VIEW_SELF","LEAVE_REQUEST","LEAVE_VIEW_SELF","DOCUMENT_SELF_DOWNLOAD","NOTIFICATION_VIEW","PASSWORD_CHANGE","REFERENCE_VIEW"));
+
             Utilisateur user = users.findByUsername(adminUsername).orElseGet(Utilisateur::new);
-            user.setUsername(adminUsername); user.setEmail(adminEmail); user.setMot_de_passe(adminPassword);
+            boolean newAdmin = user.getId_utilisateur() == null;
+            user.setUsername(adminUsername); user.setEmail(adminEmail);
+            if (user.getMot_de_passe() == null || user.getMot_de_passe().isBlank()) user.setMot_de_passe(encoder.encode(adminPassword));
             user.setActif(true); if (user.getDate_creation() == null) user.setDate_creation(LocalDateTime.now());
-            user.setRoles(Set.of(role)); users.save(user);
+            if (newAdmin || user.getRoles() == null || user.getRoles().isEmpty()) user.setRoles(new HashSet<>(Set.of(admin)));
+            users.save(user);
         };
     }
 
+    private Role role(RoleRepository repository, String code, String name, Set<Permission> permissions) {
+        Role role = repository.findByCode(code).orElseGet(Role::new); boolean newRole = role.getId_role() == null;
+        role.setCode(code); role.setNom(name);
+        role.setPermissions(new HashSet<>(permissions));
+        return repository.save(role);
+    }
+    private Set<Permission> permissionSet(Map<String, Permission> permissions, String... codes) {
+        return java.util.Arrays.stream(codes).map(permissions::get).collect(Collectors.toSet());
+    }
+
     @Bean
+    @Order(2)
     CommandLineRunner initMobileReferences(TypeReferenceRepository types, ValeurReferenceRepository values,
-                                           TypeCongeRepository conges) {
+                                           TypeCongeRepository conges, AgentRepository agents, UtilisateurRepository users,
+                                           RoleRepository roles, PasswordEncoder encoder) {
         return args -> {
             TypeReference sexe = type(types, 1L, "SEXE", "Genre");
             TypeReference statutAgent = type(types, 2L, "STATUT_AGENT", "Statut agent");
@@ -86,7 +151,33 @@ public class DataInitializer {
                 TypeConge annuel = new TypeConge(); annuel.setId_type_conge(1L); annuel.setCode("ANNUEL");
                 annuel.setLibelle("Congé annuel"); annuel.setNb_jours(30); conges.save(annuel);
             }
+            ValeurReference homme = values.findById(101L).orElse(null), femme = values.findById(102L).orElse(null);
+            ValeurReference titulaire = values.findById(201L).orElse(null), contractuel = values.findById(203L).orElse(null);
+            Role agentRole = roles.findByCode("AGENT_PUBLIC").orElseThrow();
+            Agent andry = seedAgent(agents, "FN-729103", "RABEMANANJARA", "Andry", "Antananarivo", "+261 34 56 123 45", "andry.rabemananjara@fonctionpublique.gov.mg", LocalDate.of(2008,1,15), homme, titulaire);
+            Agent feno = seedAgent(agents, "FN-108293", "RAKOTOMALALA", "Feno", "Fianarantsoa", "+261 32 44 231 09", "feno.rakotomalala@sante.gov.mg", LocalDate.of(2012,4,10), femme, titulaire);
+            Agent harijaona = seedAgent(agents, "FN-910482", "ANDRIANARIVO", "Harijaona", "Toamasina", "+261 33 15 888 77", "harijaona.andrianarivo@education.gov.mg", LocalDate.of(2018,10,1), homme, titulaire);
+            Agent hasina = seedAgent(agents, "FN-382910", "RAZAFINDRAKOTO", "Hasina", "Mahajanga", "+261 34 89 777 55", "hasina.razafindrakoto@numerique.gov.mg", LocalDate.of(2021,3,1), femme, contractuel);
+            seedAgentUser(users, encoder, agentRole, "andry.rabemananjara", andry);
+            seedAgentUser(users, encoder, agentRole, "feno.rakotomalala", feno);
+            seedAgentUser(users, encoder, agentRole, "harijaona.andrianarivo", harijaona);
+            seedAgentUser(users, encoder, agentRole, "hasina.razafindrakoto", hasina);
         };
+    }
+
+    private Agent seedAgent(AgentRepository repository, String matricule, String nom, String prenom, String lieu,
+                           String telephone, String email, LocalDate recrutement, ValeurReference sexe, ValeurReference statut) {
+        var existing = repository.findByMatricule(matricule); if (existing.isPresent()) return existing.get();
+        Agent agent = new Agent(); agent.setMatricule(matricule); agent.setNom(nom); agent.setPrenom(prenom);
+        agent.setLieu_naissance(lieu); agent.setTelephone(telephone); agent.setEmail(email); agent.setDate_recrutement(recrutement);
+        agent.setSexe(sexe); agent.setStatutAgent(statut); return repository.save(agent);
+    }
+
+    private void seedAgentUser(UtilisateurRepository repository, PasswordEncoder encoder, Role role, String username, Agent agent) {
+        if (repository.findByUsername(username).isPresent()) return;
+        Utilisateur user = new Utilisateur(); user.setUsername(username); user.setEmail(agent.getEmail());
+        user.setMot_de_passe(encoder.encode("Demo@2026")); user.setActif(true);
+        user.setDate_creation(LocalDateTime.now()); user.setId_agent(agent.getId_agent()); user.setRoles(Set.of(role)); repository.save(user);
     }
 
     private TypeReference type(TypeReferenceRepository repository, Long id, String code, String label) {

@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { API_URL, AuthUser, get, login, logout, post, restoreUser } from './src/api';
+import { API_URL, AuthUser, LoginChallenge, get, startLogin, verifyLogin, logout, post } from './src/api';
 
 type ModuleKey =
   | 'dashboard'
@@ -47,13 +47,22 @@ const modules: { key: ModuleKey; label: string; icon: string; subtitle: string; 
   { key: 'formations', label: 'Formations', icon: '◇', subtitle: 'Sessions et compétences', accent: '#2dd4bf' },
   { key: 'paie', label: 'Paie', icon: 'Ar', subtitle: 'Bulletins et salaires', accent: '#60a5fa' },
 ];
+const modulePermissions: Record<ModuleKey, string[]> = {
+  dashboard: ['DASHBOARD_NATIONAL','DASHBOARD_RH','DASHBOARD_SERVICE','DASHBOARD_PERSONAL'],
+  agents: ['AGENT_VIEW_ALL','AGENT_VIEW_SERVICE','AGENT_VIEW_SELF','AGENT_MANAGE'], organisation: ['ORG_VIEW','ORG_MANAGE'],
+  conges: ['LEAVE_MANAGE','LEAVE_APPROVE','LEAVE_REQUEST','LEAVE_VIEW_SELF'], presences: ['PRESENCE_VALIDATE','PRESENCE_VIEW_SERVICE'],
+  carrieres: ['CAREER_MANAGE','CAREER_VIEW_SELF'], evaluations: ['EVALUATION_MANAGE','EVALUATION_SERVICE'], formations: ['TRAINING_MANAGE'],
+  paie: ['PAYROLL_VIEW','PAYROLL_MANAGE'],
+};
+const canOpenModule = (permissions: string[], module: ModuleKey) => modulePermissions[module].some(permission => permissions.includes(permission));
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [booting, setBooting] = useState(true);
 
   useEffect(() => {
-    restoreUser().then(setUser).finally(() => setBooting(false));
+    // Une nouvelle ouverture de l'application commence toujours par la connexion.
+    logout().finally(() => setBooting(false));
   }, []);
 
   if (booting) return <View style={styles.appViewport}><View style={styles.appFrame}><LoadingScreen /></View></View>;
@@ -77,15 +86,18 @@ function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
-    if (!username.trim() || !password) return;
+    if (challenge ? code.length !== 6 : (!username.trim() || !password)) return;
     setBusy(true);
     try {
-      onLogin(await login(username.trim(), password));
+      if (challenge) onLogin(await verifyLogin(challenge.challengeId, code));
+      else setChallenge(await startLogin(username.trim(), password));
     } catch {
-      Alert.alert('Connexion refusée', 'Vérifiez vos identifiants et la connexion au serveur.');
+      Alert.alert('Connexion refusée', challenge ? 'Le code est invalide ou expiré.' : 'Vérifiez vos identifiants et la connexion au serveur.');
     } finally {
       setBusy(false);
     }
@@ -101,8 +113,26 @@ function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
         <Text style={styles.loginSubtitle}>Votre espace mobile de gestion des ressources humaines</Text>
 
         <View style={styles.loginCard}>
-          <Text style={styles.formTitle}>Connexion</Text>
-          <Text style={styles.label}>Nom d’utilisateur</Text>
+          <Text style={styles.formTitle}>{challenge ? 'Vérification en deux étapes' : 'Connexion'}</Text>
+          {challenge ? <>
+          <Text style={styles.loginStepText}>Un code a été envoyé à {challenge.emailMasked}.</Text>
+          <Text style={styles.label}>Code à 6 chiffres</Text>
+          <TextInput
+            style={styles.input}
+            value={code}
+            onChangeText={value => setCode(value.replace(/\D/g, '').slice(0, 6))}
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
+            maxLength={6}
+            placeholder="000000"
+            placeholderTextColor="#596477"
+            onSubmitEditing={submit}
+          />
+          <PrimaryButton label="Vérifier le code" onPress={submit} busy={busy} />
+          <Pressable onPress={() => { setChallenge(null); setCode(''); }}><Text style={styles.backLoginText}>Revenir à la connexion</Text></Pressable>
+          </> : <>
+          <Text style={styles.label}>Identifiant ou e-mail</Text>
           <TextInput
             style={styles.input}
             value={username}
@@ -127,7 +157,8 @@ function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
               <Text style={styles.showText}>{showPassword ? 'Masquer' : 'Afficher'}</Text>
             </Pressable>
           </View>
-          <PrimaryButton label="Se connecter" onPress={submit} busy={busy} />
+          <PrimaryButton label="Continuer" onPress={submit} busy={busy} />
+          </>}
         </View>
         <Text style={styles.serverText}>Serveur sécurisé · {API_URL}</Text>
       </ScrollView>
@@ -158,6 +189,7 @@ function MainShell({ user, onLogout }: { user: AuthUser; onLogout: () => void })
   useEffect(() => { load(); }, []);
 
   const navigate = (next: ModuleKey) => {
+    if (!canOpenModule(user.permissions || [], next)) return;
     setActiveModule(next);
     setMenuVisible(false);
   };
@@ -171,7 +203,7 @@ function MainShell({ user, onLogout }: { user: AuthUser; onLogout: () => void })
         ) : activeModule === 'agents' ? (
           <AgentsScreen agents={data.agents} refreshing={refreshing} refresh={load} />
         ) : (
-          <ModuleScreen moduleKey={activeModule} data={data} refresh={load} />
+          <ModuleScreen moduleKey={activeModule} data={data} refresh={load} permissions={user.permissions || []} />
         )}
       </View>
       <HamburgerMenu visible={menuVisible} active={activeModule} user={user} onNavigate={navigate} onClose={() => setMenuVisible(false)} onLogout={onLogout} />
@@ -216,7 +248,7 @@ function HamburgerMenu({ visible, active, user, onNavigate, onClose, onLogout }:
           </View>
 
           <ScrollView contentContainerStyle={styles.drawerList} showsVerticalScrollIndicator={false}>
-            {modules.map(item => {
+            {modules.filter(item => canOpenModule(user.permissions || [], item.key)).map(item => {
               const selected = active === item.key;
               return (
                 <Pressable
@@ -287,7 +319,7 @@ function Dashboard({ data, refreshing, error, refresh, openModule, user }: {
 
       <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>Accès rapides</Text><Text style={styles.sectionHint}>Voir tout</Text></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
-        {modules.filter(item => ['presences', 'organisation', 'paie', 'formations'].includes(item.key)).map(item => (
+        {modules.filter(item => ['presences', 'organisation', 'paie', 'formations'].includes(item.key) && canOpenModule(user.permissions || [], item.key)).map(item => (
           <Pressable key={item.key} style={styles.quickCard} onPress={() => openModule(item.key)}>
             <View style={[styles.quickIcon, { backgroundColor: `${item.accent}20` }]}><Text style={[styles.quickIconText, { color: item.accent }]}>{item.icon}</Text></View>
             <Text style={styles.quickTitle}>{item.label}</Text>
@@ -310,7 +342,7 @@ function AgentsScreen({ agents, refreshing, refresh }: { agents: any[]; refreshi
   );
 }
 
-function ModuleScreen({ moduleKey, data, refresh, onBack }: { moduleKey: ModuleKey; data: Data; refresh: () => Promise<void>; onBack?: () => void }) {
+function ModuleScreen({ moduleKey, data, refresh, onBack, permissions = [] }: { moduleKey: ModuleKey; data: Data; refresh: () => Promise<void>; onBack?: () => void; permissions?: string[] }) {
   const meta = modules.find(item => item.key === moduleKey)!;
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -331,8 +363,8 @@ function ModuleScreen({ moduleKey, data, refresh, onBack }: { moduleKey: ModuleK
 
   let content: ReactNode;
   if (moduleKey === 'organisation') content = <EntityList rows={data.ministeres.map(item => ({ title: item.nom, subtitle: item.code || 'Ministère', badge: 'M' }))} />;
-  else if (moduleKey === 'presences') content = <><PrimaryButton label="Nouveau pointage" onPress={() => setConfirmVisible(true)} /><EntityList rows={data.presences.map(item => ({ title: agentName(field(item, 'id_agent')), subtitle: `${item.date_presence} · ${item.heure_arrivee || '--:--'}`, badge: '✓' }))} /></>;
-  else if (moduleKey === 'conges') content = <><PrimaryButton label="Nouvelle demande" onPress={() => setConfirmVisible(true)} /><EntityList rows={data.conges.map(item => ({ title: agentName(field(item, 'id_agent')), subtitle: `Du ${item.date_debut} au ${item.date_fin}`, badge: 'C' }))} /></>;
+  else if (moduleKey === 'presences') content = <>{permissions.includes('PRESENCE_VALIDATE') ? <PrimaryButton label="Nouveau pointage" onPress={() => setConfirmVisible(true)} /> : null}<EntityList rows={data.presences.map(item => ({ title: agentName(field(item, 'id_agent')), subtitle: `${item.date_presence} · ${item.heure_arrivee || '--:--'}`, badge: '✓' }))} /></>;
+  else if (moduleKey === 'conges') content = <>{permissions.some(permission => ['LEAVE_REQUEST','LEAVE_MANAGE'].includes(permission)) ? <PrimaryButton label="Nouvelle demande" onPress={() => setConfirmVisible(true)} /> : null}<EntityList rows={data.conges.map(item => ({ title: agentName(field(item, 'id_agent')), subtitle: `Du ${item.date_debut} au ${item.date_fin}`, badge: 'C' }))} /></>;
   else if (moduleKey === 'paie') content = <EntityList rows={data.bulletins.map(item => ({ title: agentName(field(item, 'id_agent')), subtitle: `${item.mois}/${item.annee} · ${Number(item.salaire_net || 0).toLocaleString('fr-FR')} Ar`, badge: 'Ar' }))} />;
   else if (moduleKey === 'carrieres') content = <EntityList rows={data.agents.map(item => ({ title: `${item.nom} ${item.prenom || ''}`, subtitle: `Grade #${item.id_grade || '-'} · Service #${item.id_service || '-'}`, badge: '↗' }))} />;
   else content = <EmptyModule meta={meta} />;
@@ -380,7 +412,7 @@ const styles = StyleSheet.create({
   loginContent: { flexGrow: 1, justifyContent: 'center', padding: 26 },
   hrLogo: { position: 'relative', alignSelf: 'center', overflow: 'hidden', backgroundColor: '#4f46e5', shadowColor: '#6366f1', shadowOpacity: .45, shadowRadius: 18, elevation: 8 }, logoSideHead: { position: 'absolute', backgroundColor: '#a5b4fc' }, logoSideBody: { position: 'absolute', backgroundColor: '#a5b4fc' }, logoMainHead: { position: 'absolute', backgroundColor: '#fff' }, logoMainBody: { position: 'absolute', backgroundColor: '#e0e7ff' },
   brandOverline: { color: '#a5b4fc', fontSize: 10, fontWeight: '900', letterSpacing: 2, textAlign: 'center', marginTop: 22 }, loginTitle: { color: '#fff', fontSize: 30, fontWeight: '900', textAlign: 'center', marginTop: 8 }, loginSubtitle: { color: '#8d98aa', fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
-  loginCard: { backgroundColor: '#121722', borderWidth: 1, borderColor: '#262f40', borderRadius: 24, padding: 20, marginTop: 30 }, formTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 12 }, label: { color: '#aeb8c8', fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 7 }, input: { color: '#fff', backgroundColor: '#0c111a', borderColor: '#293246', borderWidth: 1, borderRadius: 14, padding: 14 }, passwordRow: { backgroundColor: '#0c111a', borderColor: '#293246', borderWidth: 1, borderRadius: 14, flexDirection: 'row', alignItems: 'center' }, passwordInput: { flex: 1, color: '#fff', padding: 14 }, showButton: { paddingHorizontal: 14, paddingVertical: 13 }, showText: { color: '#a5b4fc', fontSize: 11, fontWeight: '800' }, serverText: { color: '#596477', fontSize: 10, textAlign: 'center', marginTop: 20 },
+  loginCard: { backgroundColor: '#121722', borderWidth: 1, borderColor: '#262f40', borderRadius: 24, padding: 20, marginTop: 30 }, formTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 12 }, loginStepText: { color: '#8d98aa', fontSize: 12, lineHeight: 18 }, backLoginText: { color: '#a5b4fc', fontSize: 11, fontWeight: '800', textAlign: 'center', padding: 10 }, label: { color: '#aeb8c8', fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 7 }, input: { color: '#fff', backgroundColor: '#0c111a', borderColor: '#293246', borderWidth: 1, borderRadius: 14, padding: 14 }, passwordRow: { backgroundColor: '#0c111a', borderColor: '#293246', borderWidth: 1, borderRadius: 14, flexDirection: 'row', alignItems: 'center' }, passwordInput: { flex: 1, color: '#fff', padding: 14 }, showButton: { paddingHorizontal: 14, paddingVertical: 13 }, showText: { color: '#a5b4fc', fontSize: 11, fontWeight: '800' }, serverText: { color: '#596477', fontSize: 10, textAlign: 'center', marginTop: 20 },
   appHeader: { height: 64, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#1b2230', backgroundColor: '#0b0f16' }, headerOverline: { color: '#818cf8', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 }, headerTitle: { color: '#e8edf5', fontSize: 14, fontWeight: '700', marginTop: 2 }, userAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#222a3a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#35405a' }, userAvatarText: { color: '#c7d2fe', fontSize: 11, fontWeight: '900' },
   hamburgerButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#151b26', borderWidth: 1, borderColor: '#293244', alignItems: 'center', justifyContent: 'center', gap: 4 }, headerButtonPressed: { opacity: .72 }, hamburgerLine: { width: 17, height: 2, borderRadius: 2, backgroundColor: '#c7d2fe' },
   drawerOverlay: { flex: 1, backgroundColor: '#0008', alignItems: 'center', justifyContent: 'center', paddingVertical: Platform.OS === 'web' ? 20 : 12 }, drawerScrim: { ...StyleSheet.absoluteFillObject }, drawerFrame: { width: '100%', height: '92%', maxWidth: 480, maxHeight: 820, borderRadius: 24, overflow: 'hidden' }, drawer: { width: '84%', maxWidth: 360, height: '100%', backgroundColor: '#0b0f16', borderRightWidth: 1, borderRightColor: '#293244' }, drawerHeader: { minHeight: 82, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#1b2230' }, drawerOverline: { color: '#818cf8', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 }, drawerTitle: { color: '#fff', fontSize: 17, fontWeight: '900', marginTop: 2 }, closeButton: { width: 36, height: 36, borderRadius: 11, backgroundColor: '#151b26', alignItems: 'center', justifyContent: 'center' }, closeButtonText: { color: '#aeb8c8', fontSize: 24, lineHeight: 26 }, drawerList: { padding: 12, gap: 5 }, drawerItem: { minHeight: 58, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: 'transparent' }, drawerItemActive: { backgroundColor: '#181b36', borderColor: '#353b70' }, drawerItemIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }, drawerItemIconText: { fontSize: 14, fontWeight: '900' }, drawerItemTitle: { color: '#d6dce7', fontSize: 13, fontWeight: '800' }, drawerItemTitleActive: { color: '#fff' }, drawerItemSubtitle: { color: '#687488', fontSize: 9, marginTop: 2 }, activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#818cf8' }, drawerProfile: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderTopWidth: 1, borderTopColor: '#1b2230' },

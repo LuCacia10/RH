@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/references")
@@ -22,11 +23,13 @@ public class ReferenceController {
     private TypeReferenceRepository typeReferenceRepository;
 
     @GetMapping("/valeurs")
+    @PreAuthorize("hasAuthority('REFERENCE_VIEW')")
     public List<ValeurReference> getAllValeurs() {
         return valeurReferenceRepository.findAll();
     }
 
     @GetMapping("/types")
+    @PreAuthorize("hasAuthority('REFERENCE_VIEW')")
     public List<TypeReference> getAllTypes() {
         return typeReferenceRepository.findAll();
     }
