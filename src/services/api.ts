@@ -6,11 +6,16 @@ export interface LoginChallenge { challengeId:string; emailMasked:string; expire
 export const getStoredToken=()=>localStorage.getItem(TOKEN_KEY);
 export const clearSession=()=>localStorage.removeItem(TOKEN_KEY);
 const request=async(endpoint:string,options:RequestInit={})=>{
- const token=getStoredToken();
- const response=await fetch(`${API_BASE_URL}${endpoint}`,{...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:`Bearer ${token}`}:{ }),...options.headers}});
- if(response.status===401&&!['/auth/login','/auth/verify-otp'].includes(endpoint)){clearSession();window.dispatchEvent(new Event('sgrh:unauthorized'));}
- if(!response.ok)throw new Error(`API ${response.status}: ${response.statusText}`);
- return response.status===204?null:response.json();
+ window.dispatchEvent(new Event('sgrh:request-start'));
+ try {
+  const token=getStoredToken();
+  const response=await fetch(`${API_BASE_URL}${endpoint}`,{...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(token?{Authorization:`Bearer ${token}`}:{ }),...options.headers}});
+  if(response.status===401&&!['/auth/login','/auth/verify-otp'].includes(endpoint)){clearSession();window.dispatchEvent(new Event('sgrh:unauthorized'));}
+  if(!response.ok)throw new Error(`API ${response.status}: ${response.statusText}`);
+  return response.status===204?null:response.json();
+ } finally {
+  window.dispatchEvent(new Event('sgrh:request-end'));
+ }
 };
 export const startLogin=(username:string,password:string):Promise<LoginChallenge>=>
  request('/auth/login',{method:'POST',body:JSON.stringify({username,password})}) as Promise<LoginChallenge>;

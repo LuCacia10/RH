@@ -100,21 +100,6 @@ export default function Sidebar({ activeTab, setActiveTab, agentCount, pendingLe
           );
         })}
       </nav>
-
-      {/* Footer Meta */}
-      <div className="p-4 border-t border-white/10 bg-[#0F1218] text-xs text-slate-500">
-        <div className="flex items-center justify-between mb-1">
-          <span>Version</span>
-          <span className="font-mono text-[10px] text-slate-400">v1.2.0-stable</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span>État Base SQL</span>
-          <span className="flex items-center gap-1.5 font-bold text-emerald-400 text-[10px] uppercase">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Connecté
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

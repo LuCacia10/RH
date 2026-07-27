@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { Check, KeyRound, Pencil, Plus, Save, Shield, Trash2, UserCog, UserX, X } from "lucide-react";
 import { deleteData, fetchData, patchData, postData, putData } from "../services/api";
 
@@ -34,7 +35,7 @@ export default function RbacAdministration() {
     setForm({ username: user.username, email: user.email || "", password: "", roleCode: user.roles[0] || "AGENT_PUBLIC", agentId: user.agentId?.toString() || "", serviceId: user.serviceId?.toString() || "", actif: user.actif });
     setMessage("");
   };
-  const submitUser = async (event: React.FormEvent) => {
+  const submitUser = async (event: FormEvent) => {
     event.preventDefault(); setMessage("");
     try {
       const payload = { username: form.username, email: form.email, ...(form.password ? { password: form.password } : {}), actif: form.actif, roleCodes: [form.roleCode], agentId: form.agentId ? Number(form.agentId) : null, serviceId: form.serviceId ? Number(form.serviceId) : null };
@@ -75,4 +76,4 @@ export default function RbacAdministration() {
   </div>;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="text-[10px] uppercase tracking-wider font-bold text-slate-500 block mb-1.5">{label}</span>{children}</label>; }
+function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="block"><span className="text-[10px] uppercase tracking-wider font-bold text-slate-500 block mb-1.5">{label}</span>{children}</label>; }
